@@ -16,10 +16,11 @@ return new class extends Migration
         $table->string('nama_lengkap');
         $table->string('username')->unique(); // Tetap login pakai username unik
         $table->string('email')->unique();    // Tambahan informasi email unik
-        $table->string('no_hp');              // Tambahan informasi nomor handphone
+        $table->string('no_hp')->nullable();             // Tambahan informasi nomor handphone
         $table->string('password');
         $table->string('role');               // admin, pegawai, kepala-bu
         $table->string('bisnis_unit')->nullable();
+        $table->string('status_aktif')->default('pending');
         $table->rememberToken();
         $table->timestamps();
        });

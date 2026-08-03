@@ -59,9 +59,15 @@
                         </div>
                     </td>
 
-                    <!-- Kolom 3: Label Status -->
+                    <!-- Kolom 3: Label Status Berdasarkan Kategori Database yang Valid -->
                     <td class="px-6 py-4">
-                        @if(in_array(strtolower(Auth::user()->bisnis_unit), ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar']))
+                        @php
+                            // 🔥 Cek kategori Bisnis Unit secara dinamis dari database MySQL
+                            $currentBu = \App\Models\BisnisUnit::where('nama_bisnis_unit', 'LIKE', Auth::user()->bisnis_unit)->first();
+                            $isRetail = $currentBu ? ($currentBu->kategori === 'retail') : true;
+                        @endphp
+
+                        @if($isRetail)
                             <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100">
                                 🔵 RETAIL
                             </span>

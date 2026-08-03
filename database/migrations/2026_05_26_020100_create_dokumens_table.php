@@ -39,7 +39,9 @@ return new class extends Migration
         
         // 🌟 ATRIBUT TAMBAHAN BIAR ERD MAKIN MATANG:
         $table->text('keterangan')->nullable(); // Catatan tambahan dari pengupload
-        $table->year('tahun_buku')->nullable(); // Untuk mempermudah filter laporan per tahun (contoh: 2025, 2026)
+        $table->string('bulan_buku')->nullable();
+        $table->string('tahun_buku')->nullable();
+        $table->string('jilid_buku')->nullable();
 
         // ==========================================
         // DATA FISIK PENYIMPANAN CLOUD AWS S3

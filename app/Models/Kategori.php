@@ -6,12 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Kategori extends Model
 {
-    public function up(): void
-    {
-        Schema::create('kategori', function (Blueprint $table){
-            $table->id();
-            $table->string('nama');
-            $table->timestamps();
-        });
-    }
+    protected $table = 'kategoris';
+
+    protected $fillable = ['nama_kategori', 'singkatan'];
 }

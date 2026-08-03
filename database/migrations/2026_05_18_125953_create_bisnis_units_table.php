@@ -6,21 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('bisnis_units', function (Blueprint $table) {
-            $table->id();
-            $table->string('nama_bisnis_unit'); // 🌟 Menampung teks 'spbu', 'swalayan', dll
-            $table->timestamps();
-        }); // <-- Pastikan di sini rapi ya, kata "Levin" sudah dibuang total!
+        $table->id();
+        $table->string('nama_bisnis_unit');
+        $table->enum('kategori', ['retail', 'commercial'])->default('retail');
+        $table->text('deskripsi')->nullable(); // 👈 Tambahkan kolom ini, Baim!
+        $table->timestamps();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('bisnis_units');

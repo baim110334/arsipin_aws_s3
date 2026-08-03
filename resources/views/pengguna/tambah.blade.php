@@ -66,7 +66,7 @@
                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Tingkatan Otoritas Hak Akses</label>
                 <div class="relative flex items-center">
                     <i class="fa-solid fa-user-shield absolute left-4 text-gray-300 text-sm"></i>
-                    <select name="role" required 
+                    <select id="role_select" name="role" required 
                         class="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl outline-none text-gray-600 text-xs focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold cursor-pointer shadow-sm">
                         <option value="admin">Admin Pusat</option>
                         <option value="pegawai-retail">Retail Staff</option>
@@ -80,12 +80,12 @@
                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Penempatan Wilayah Otoritas Bisnis Unit</label>
                 <div class="relative flex items-center">
                     <i class="fa-solid fa-building-flag absolute left-4 text-gray-300 text-sm"></i>
-                    <select name="bisnis_unit" 
+                    <select id="bisnis_unit_select" name="bisnis_unit" 
                         class="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl outline-none text-gray-600 text-xs focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold cursor-pointer shadow-sm">
                         <option value="">-- KOSONG / TANPA WILAYAH (KHUSUS ADMIN) --</option>
                         @foreach($bisnisUnits as $bu)
-                            <option value="{{ $bu->nama_bisnis_unit }}" {{ old('bisnis_unit') == $bu->nama_bisnis_unit ? 'selected' : '' }}>
-                                {{ strtoupper(str_replace('-', ' ', $bu->nama_bisnis_unit)) }}
+                            <option value="{{ $bu->nama_bisnis_unit }}" data-kategori="{{ $bu->kategori }}" {{ old('bisnis_unit') == $bu->nama_bisnis_unit ? 'selected' : '' }}>
+                                {{ strtoupper(str_replace('-', ' ', $bu->nama_bisnis_unit)) }} ({{ strtoupper($bu->kategori) }})
                             </option>
                         @endforeach
                     </select>
@@ -113,4 +113,33 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const roleSelect = document.getElementById('role_select');
+        const buSelect = document.getElementById('bisnis_unit_select');
+        const options = buSelect.querySelectorAll('option');
+
+        function filterBisnisUnit() {
+            const role = roleSelect.value;
+            options.forEach(opt => {
+                if (opt.value === "") {
+                    opt.style.display = "block";
+                    return;
+                }
+                const kategori = opt.getAttribute('data-kategori');
+                if (role === 'pegawai-retail' && kategori !== 'retail') {
+                    opt.style.display = "none";
+                } else if (role === 'pegawai-komersial' && kategori !== 'commercial') {
+                    opt.style.display = "none";
+                } else {
+                    opt.style.display = "block";
+                }
+            });
+        }
+
+        roleSelect.addEventListener('change', filterBisnisUnit);
+        filterBisnisUnit();
+    });
+</script>
 @endsection

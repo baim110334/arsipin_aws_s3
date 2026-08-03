@@ -132,16 +132,18 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        <!-- GRAFIK KIRI: VOLUME TRAFIK BERKAS -->
         <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2 flex flex-col justify-between">
             <div class="flex items-center justify-between border-b border-gray-50 pb-4 mb-4">
                 <div>
                     <h3 class="text-sm font-bold text-[#0c1a3c]">Volume Trafik Berkas Finansial</h3>
-                    <p class="text-[11px] text-gray-400 font-light">Distribusi jumlah arsip penutupan buku berdasarkan tahun</p>
+                    <p class="text-[11px] text-gray-400 font-light">Distribusi jumlah arsip penutupan buku berdasarkan waktu</p>
                 </div>
-                <select class="text-[10px] font-bold bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none text-gray-500 cursor-pointer focus:border-[#0c1a3c]">
-                    <option value="tahun">Skala: Tahunan</option>
-                    <option value="bulan" disabled>Skala: Bulanan (🔒 Backend Plan)</option>
-                    <option value="minggu" disabled>Skala: Mingguan (🔒 Backend Plan)</option>
+                <!-- 🔥 FILTER LIVE: Otomatis me-refresh halaman membawa query filter scale & mempertahankan rumpun jurnal -->
+                <select onchange="location = this.value;" class="text-[10px] font-bold bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none text-gray-500 cursor-pointer focus:border-[#0c1a3c]">
+                    <option value="?scale=tahun&filter={{ $filter }}" {{ $scale == 'tahun' ? 'selected' : '' }}>Skala: Tahunan</option>
+                    <option value="?scale=bulan&filter={{ $filter }}" {{ $scale == 'bulan' ? 'selected' : '' }}>Skala: Bulanan</option>
+                    <option value="?scale=minggu&filter={{ $filter }}" {{ $scale == 'minggu' ? 'selected' : '' }}>Skala: Mingguan</option>
                 </select>
             </div>
             <div class="w-full h-64 relative">
@@ -149,6 +151,7 @@
             </div>
         </div>
 
+        <!-- GRAFIK KANAN: LIVE AWS S3 STORAGE INTEGRITY -->
         <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
             <div class="border-b border-gray-50 pb-4 mb-4">
                 <h3 class="text-sm font-bold text-[#0c1a3c]">Integritas Penyimpanan AWS S3</h3>
@@ -158,23 +161,29 @@
                 <canvas id="awsStorageDoughnutChart"></canvas>
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none mt-2">
                     <span class="text-xs text-gray-400 font-bold uppercase tracking-wider">Terpakai</span>
-                    <span class="text-xl font-black text-[#0c1a3c] font-mono">9.0%</span>
+                    <!-- 🔥 PERSENTASE LIVE DARI CODES AWS S3 -->
+                    <span class="text-xl font-black text-[#0c1a3c] font-mono">{{ number_format($persentaseTerpakai, 1) }}%</span>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-2 text-center border-t border-gray-50 pt-4 mt-2">
                 <div class="border-r border-gray-100">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Used Space</p>
-                    <p class="text-xs font-black text-[#0c1a3c] font-mono mt-0.5">450.50 MB</p>
+                    <!-- 🔥 UKURAN BERKAS LIVE (MB) -->
+                    <p class="text-xs font-black text-[#0c1a3c] font-mono mt-0.5">{{ number_format($totalTerpakaiMB, 2) }} MB</p>
                 </div>
                 <div>
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Remaining Space</p>
-                    <p class="text-xs font-black text-sky-500 font-mono mt-0.5">4.55 GB</p>
+                    <!-- 🔥 SISA KAPASITAS LIVE (GB) -->
+                    <p class="text-xs font-black text-sky-500 font-mono mt-0.5">{{ number_format($sisaPenyimpananGB, 2) }} GB</p>
                 </div>
             </div>
         </div>
 
     </div>
 </div>
+
+<!-- CDN Chart.js (Taruh jika belum ada di layouts master app) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -188,19 +197,20 @@
             clockElement.innerText = dateStr + " | " + timeStr + " WIB";
         }, 1000);
 
-        // 2. RENDERING BAR CHART (MOCK TAHUNAN)
+        // 2. RENDERING BAR CHART DENGAN DATA LIVE DARI BACKEND
         const ctxBar = document.getElementById('financialBarChart').getContext('2d');
         new Chart(ctxBar, {
             type: 'bar',
             data: {
-                labels: ['2023', '2024', '2025', '2026 (YTD)'],
+                labels: {!! json_encode($chartLabels) !!}, // Label Dinamis: Tahun/Bulan/Hari
                 datasets: [{
                     label: 'Jumlah Dokumen Finansial Terindeks',
-                    data: [120, 340, 512, 189],
+                    data: {!! json_encode($chartData) !!}, // Angka Real-Time Database
                     backgroundColor: '#0c1a3c',
                     hoverBackgroundColor: '#0ea5e9',
                     borderRadius: 8,
                     borderSkipped: false,
+                    barThickness: 25
                 }]
             },
             options: {
@@ -209,19 +219,22 @@
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { grid: { display: false }, ticks: { font: { family: 'Poppins', size: 10 } } },
-                    y: { grid: { color: '#f3f4f6' }, ticks: { font: { family: 'Poppins', size: 10 } } }
+                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { family: 'Poppins', size: 10 }, stepSize: 1 } }
                 }
             }
         });
 
-        // 3. RENDERING DOUGHNUT CHART (AWS S3 MOCK)
+        // 3. RENDERING DOUGHNUT CHART AWS S3 LIVE CALCULATOR
         const ctxDoughnut = document.getElementById('awsStorageDoughnutChart').getContext('2d');
+        const terpakaiPct = {{ $persentaseTerpakai }};
+        const sisaPct = 100 - terpakaiPct;
+
         new Chart(ctxDoughnut, {
             type: 'doughnut',
             data: {
-                labels: ['Terpakai (MB)', 'Sisa Ruang Kosong (GB)'],
+                labels: ['Terpakai (%)', 'Sisa Ruang Kosong (%)'],
                 datasets: [{
-                    data: [450.50, 4550.00],
+                    data: [terpakaiPct, sisaPct],
                     backgroundColor: ['#0c1a3c', '#e2e8f0'],
                     hoverBackgroundColor: ['#0ea5e9', '#cbd5e1'],
                     borderWidth: 0,

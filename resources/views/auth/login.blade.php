@@ -48,7 +48,7 @@
                 @endif
 
                 <div class="space-y-1.5">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Username / Email Pengguna</label>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Username </label>
                     <div class="relative flex items-center">
                         <i class="fa-solid fa-user absolute left-4 text-gray-300 text-sm transition-colors"></i>
                         <input type="text" name="username" value="{{ old('username') }}" required autocomplete="off"

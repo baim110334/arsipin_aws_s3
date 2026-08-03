@@ -6,25 +6,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
-{
-    Schema::create('perusahaans', function (Blueprint $table) {
-        $table->id();
-        $table->string('nama_pt'); // 🌟 Tambahkan ini untuk nama PT (Contoh: PT SCK)
-        
-        // 🌟 Tambahkan foreign key ini untuk menghubungkan perusahaan ke bisnis_units
-        $table->foreignId('bisnis_unit_id')->constrained('bisnis_units')->onDelete('cascade');
-        
-        $table->timestamps();
-    });
-}
+    {
+        Schema::create('perusahaans', function (Blueprint $table) {
+            $table->id();
+            $table->string('nama_pt'); // Contoh: PT SCK, PT SBS
+            $table->foreignId('bisnis_unit_id')->constrained('bisnis_units')->onDelete('cascade');
+            $table->timestamps();
+        });
+    }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('perusahaans');

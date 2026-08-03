@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Dokumen;
+use App\Models\BisnisUnit;
+use App\Models\Kategori;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -11,19 +13,18 @@ use Illuminate\Support\Str;
 class DokumenController extends Controller
 {
     /**
-     * Menampilkan daftar dokumen (Versi Super Kebal Spasi & Strip untuk Bisnis Unit DAN Perusahaan!)
+     * Menampilkan daftar dokumen (Dinamis DB & Kebal Spasi/Strip)
      */
     public function index($bisnis_unit, $perusahaan)
     {
-        // 1. Ambil versi strip dan versi spasi untuk BISNIS UNIT
-        $versiStripBU = str_replace(' ', '-', $bisnis_unit); // Contoh: bbm-retail
-        $versiSpasiBU = str_replace('-', ' ', $bisnis_unit); // Contoh: bbm retail
+        // 1. Ambil versi strip dan versi spasi
+        $versiStripBU = str_replace(' ', '-', $bisnis_unit);
+        $versiSpasiBU = str_replace('-', ' ', $bisnis_unit);
 
-        // 🌟 2. JINAKKAN PERUSAHAAN: Ambil versi strip dan spasi untuk PERUSAHAAN agar anti-eror!
-        $versiStripPT = str_replace(' ', '-', $perusahaan); // Contoh: pt-sck atau PT-SCK
-        $versiSpasiPT = str_replace('-', ' ', $perusahaan); // Contoh: pt sck atau PT SCK
+        $versiStripPT = str_replace(' ', '-', $perusahaan);
+        $versiSpasiPT = str_replace('-', ' ', $perusahaan);
 
-        // 3. Query Pintar: Cari yang mirip versi strip ATAU spasi untuk kedua parameter
+        // 2. Query Dokumen berdasarkan BU dan Perusahaan
         $list_dokumen = Dokumen::where(function($query) use ($versiStripPT, $versiSpasiPT) {
                                     $query->where('perusahaan', 'LIKE', $versiStripPT)
                                           ->orWhere('perusahaan', 'LIKE', $versiSpasiPT);
@@ -34,19 +35,22 @@ class DokumenController extends Controller
                                 })
                                 ->get();
 
-        // 4. Format judul header halaman agar tampil estetik
+        // 3. Format nama header
         $nama_bu = strtoupper(str_replace('-', ' ', $bisnis_unit));
-        $nama_pt = strtoupper(str_replace('-', ' ', $perusahaan)); // Biar di header tampil "PT SCK"
+        $nama_pt = strtoupper(str_replace('-', ' ', $perusahaan));
 
-        // 5. Deteksi folder view berdasarkan URL asli
-        $bisnisUnitLower = strtolower($bisnis_unit);
-        $kelompokRetail = ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar'];
+        // 🔥 4. Sedot Data Kategori Dinamis dari DB untuk Dropdown Filter
+        $kategoris = Kategori::all();
 
-        if (in_array($bisnisUnitLower, $kelompokRetail)) {
-            return view('retail.dokumen', compact('nama_bu', 'nama_pt', 'list_dokumen', 'bisnis_unit'));
+        // 5. Cek Rumpun Divisi Langsung dari Database (Bukan Hardcoded Lagi)
+        $buObj = BisnisUnit::where('nama_bisnis_unit', 'LIKE', $nama_bu)->first();
+        $isRetail = $buObj ? ($buObj->kategori === 'retail') : request()->is('retail*');
+
+        if ($isRetail) {
+            return view('retail.dokumen', compact('nama_bu', 'nama_pt', 'list_dokumen', 'bisnis_unit', 'kategoris'));
         }
 
-        return view('comercial.dokumen', compact('nama_bu', 'nama_pt', 'list_dokumen', 'bisnis_unit'));
+        return view('comercial.dokumen', compact('nama_bu', 'nama_pt', 'list_dokumen', 'bisnis_unit', 'kategoris'));
     }
 
     /**
@@ -54,123 +58,139 @@ class DokumenController extends Controller
      */
     public function create($bisnis_unit, $perusahaan)
     {
-        $bisnisUnitLower = strtolower($bisnis_unit);
-        $kelompokRetail = ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar'];
-
-        if (in_array($bisnisUnitLower, $kelompokRetail)) {
-            return view('retail.upload', compact('bisnis_unit', 'perusahaan'));
+        // 🚨 BENTENG PERTAHANAN 1: Hadang Kepala BU yang mencoba membuka form upload divisi lain
+        if (in_array(Auth::user()->role, ['kepala-bu', 'kepala_bu'])) {
+            if (strtolower(Auth::user()->bisnis_unit) !== strtolower($bisnis_unit)) {
+                return redirect()->back()->with('error', 'Otoritas ditolak! Anda tidak memiliki hak akses untuk mengunggah berkas ke unit operasional ini.');
+            }
         }
 
-        return view('comercial.upload', compact('bisnis_unit', 'perusahaan'));
+        // 🔥 SEDOT KATEGORI DINAMIS UNTUK DROPDOWN FORM UPLOAD (FIX ERROR UNDEFINED $kategoris)
+        $kategoris = Kategori::all();
+
+        // Cek Rumpun Divisi dari Database
+        $nama_bu = strtoupper(str_replace('-', ' ', $bisnis_unit));
+        $buObj = BisnisUnit::where('nama_bisnis_unit', 'LIKE', $nama_bu)->first();
+        $isRetail = $buObj ? ($buObj->kategori === 'retail') : request()->is('retail*');
+
+        if ($isRetail) {
+            return view('retail.upload', compact('bisnis_unit', 'perusahaan', 'kategoris'));
+        }
+
+        return view('comercial.upload', compact('bisnis_unit', 'perusahaan', 'kategoris'));
     }
 
     /**
-     * 3. PROSES SIMPAN FILE PDF KE HARDDISK & DATABASE (Full Terintegrasi & Anti-Crash)
+     * PROSES SIMPAN FILE PDF KE CLOUD AMAZON S3 & DATABASE
      */
     public function store(Request $request)
     {
-        // 🌟 1. MEMBUAT VALIDATOR SECARA MANUAL (Biar sinkron dengan pengecekan $validator->fails())
+        // 🚨 BENTENG PERTAHANAN 2
+        if (in_array(Auth::user()->role, ['kepala-bu', 'kepala_bu'])) {
+            if (strtolower(Auth::user()->bisnis_unit) !== strtolower($request->bisnis_unit)) {
+                return redirect()->back()->with('error', 'Otoritas manipulasi data ditolak! Unit operasional ini berada di luar wilayah pengawasan Anda.');
+            }
+        }
+
+        // 1. Validasi Input Form
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'bisnis_unit'   => 'required|string',
             'perusahaan'    => 'required|string',
             'nama_dokumen'  => 'required|string|max:255',
-            'no_dokumen'    => 'required|string|unique:dokumens,no_dokumen', // Kunci nomor dokumen anti-kembar
+            'no_dokumen'    => 'required|string|unique:dokumens,no_dokumen', 
             'tipe_keuangan' => 'required|string',
-            'bulan_buku'    => 'required|string|max:20', // Wajib diisi!
-            'tahun_buku'    => 'required|string|max:20', // Mendukung rentang "2025-2026"
-            'jilid_buku'    => 'required|string|max:10', // Wajib diisi!
-            'file_dokumen'  => 'required|file|mimes:pdf|max:3072', // Maksimal 3MB
+            'bulan_buku'    => 'required|string|max:20', 
+            'tahun_buku'    => 'required|string|max:20', 
+            'jilid_buku'    => 'required|string|max:10', 
+            'file_dokumen'  => 'required|file|mimes:pdf|max:3072', 
         ], [
-            // Custom Announcement Bahasa Indonesia biar dosen penguji senang wkwkwk
-            'file_dokumen.mimes' => 'Format berkas wajib berupa PDF! Ekstensi lain seperti PPT, Word, atau Excel dilarang masuk.',
-            'file_dokumen.max'   => 'Ukuran berkas terlalu gajah, maksimal hanya boleh 3MB!',
-            'no_dokumen.unique'  => 'Nomor dokumen resmi ini sudah terdaftar di sistem, silakan sesuaikan jilid/bulan buku.',
+            'no_dokumen.unique' => 'Nomor dokumen resmi ini sudah pernah terdaftar di dalam arsip digital!',
+            'file_dokumen.max'  => 'Ukuran berkas PDF terlalu besar, maksimal batas sistem adalah 3 MB.',
+            'file_dokumen.mimes'=> 'Sistem hanya menerima berkas resmi berformat PDF.',
         ]);
 
-        // 🌟 2. JIKA GAGAL VALIDASI, KEMBALIKAN SECARA ANGGUN (Form gak bakal crash halaman merah!)
         if ($validator->fails()) {
-            return redirect()->back()
-                             ->withErrors($validator)
-                             ->withInput();
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        // 3. PROSES PEMBACAAN DAN PENYIMPANAN BERKAS FISIK PDF
+        // 2. Ambil File Unggahan
         $file = $request->file('file_dokumen');
         $originalName = $file->getClientOriginalName();
         $fileSize = round($file->getSize() / 1024 / 1024, 2) . ' MB';
 
-        // Deteksi folder tujuan berdasarkan nama unit bisnis
-        $bisnisUnitLower = strtolower($request->bisnis_unit);
-        $kelompokRetail = ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar'];
+        // 3. Bersihkan Nama Unit Bisnis untuk Folder S3
+        $cleanBU = strtolower(basename($request->bisnis_unit));
+        $nama_bu_search = strtoupper(str_replace('-', ' ', $cleanBU));
+        $buObj = BisnisUnit::where('nama_bisnis_unit', 'LIKE', $nama_bu_search)->first();
+        
+        $folderDivisi = ($buObj && $buObj->kategori === 'commercial') ? 'commercial' : 'retail';
 
-        if (in_array($bisnisUnitLower, $kelompokRetail)) {
-            $folderDivisi = 'retail';
-        } else {
-            $folderDivisi = 'commercial';
-        }
+        // 4. Siapkan Target Folder S3
+        $namaFileMurni = Str::random(20) . '.' . $file->getClientOriginalExtension();
+        $targetFolder = 'arsip/' . $folderDivisi;
 
-        // Amankan nama file di storage lokal dengan string acak
-        $filename = \Str::random(20) . '.' . $file->getClientOriginalExtension();
-        $folderPath = 'arsip/' . $folderDivisi; 
-        $path = $file->storeAs($folderPath, $filename, 'public');
+        // 5. Upload ke Cloud AWS S3
+        $jalurAwanS3 = Storage::disk('s3')->putFileAs(
+            $targetFolder,
+            $file,
+            $namaFileMurni
+        );
 
         $userId = Auth::id();
 
-        // 4. INJECT DATA BARU KE DALAM TABEL MYSQL DENGAN AMAN
+        // 6. Inject Metadata ke Database
         \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
-        \App\Models\Dokumen::create([
+        Dokumen::create([
             'user_id'            => $userId, 
-            'bisnis_unit'        => $request->bisnis_unit,
+            'bisnis_unit'        => $cleanBU, 
             'perusahaan'         => $request->perusahaan,
-            'nama_dokumen'       => $request->nama_dokumen,
-            'no_dokumen'         => $request->no_dokumen, // Menyimpan nomor hasil racikan JS otomatis
+            'nama_dokumen'       => $request->nama_dokumen, 
+            'no_dokumen'         => $request->no_dokumen, 
             'tipe_keuangan'      => $request->tipe_keuangan,
-            'bulan_buku'         => $request->bulan_buku, // 🌟 PASTIKAN INI ADA DI DATABASE KAMU ANGELA
+            'bulan_buku'         => $request->bulan_buku, 
             'tahun_buku'         => $request->tahun_buku, 
-            'jilid_buku'         => $request->jilid_buku, // 🌟 PASTIKAN INI ADA DI DATABASE KAMU ANGELA
+            'jilid_buku'         => $request->jilid_buku, 
             'keterangan'         => $request->keterangan, 
             'file_name_original' => $originalName,
-            's3_object_key'      => $path,
+            's3_object_key'      => $jalurAwanS3,
             'file_size'          => $fileSize,
             'status'             => 'active',
         ]);
 
         \DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // 🌟 5. REKAM HISTORI KE TIMELINE DIGITAL ARSIPIN
-        \App\Http\Controllers\UserController::catatLog('Upload Dokumen', Auth::user()->nama_lengkap . ' mengunggah dokumen baru dengan nomor ' . $request->no_dokumen);
+        // 7. Catat Audit Trail
+        \App\Http\Controllers\UserController::catatLog('Upload Dokumen', Auth::user()->nama_lengkap . ' mengunggah dokumen baru dengan nomor ' . $request->no_dokumen . ' ke Amazon S3 Cloud Storage.');
 
-        // 🌟 6. JALUR PULANG DINAMIS ANTI-NYASAR
-        if (in_array($bisnisUnitLower, $kelompokRetail)) {
-            return redirect()->route('retail.dokumen', [$request->bisnis_unit, $request->perusahaan])
-                             ->with('success', 'Dokumen retail berhasil diarsipkan!');
+        // 8. Redirect Kembali ke View
+        if ($folderDivisi === 'retail') {
+            return redirect()->route('retail.dokumen', [$cleanBU, $request->perusahaan])
+                             ->with('success', 'Dokumen retail berhasil diarsipkan ke Cloud S3!');
         }
 
-        return redirect()->route('comercial.dokumen', [$request->bisnis_unit, $request->perusahaan])
-                         ->with('success', 'Dokumen komersial berhasil diarsipkan!');
+        return redirect()->route('comercial.dokumen', [$cleanBU, $request->perusahaan])
+                         ->with('success', 'Dokumen komersial berhasil diarsipkan ke Cloud S3!');
     }
 
     /**
-     * Menampilkan pratinjau (preview) berkas PDF
+     * Preview Berkas PDF Pre-signed URL S3 Privat
      */
     public function preview($id)
     {
         $dokumen = Dokumen::findOrFail($id);
         $pathFile = $dokumen->s3_object_key; 
 
-        if (!Storage::disk('public')->exists($pathFile)) {
-            abort(404, 'Maaf Angela, file fisik PDF tidak ditemukan di dalam folder storage!');
+        if (!Storage::disk('s3')->exists($pathFile)) {
+            abort(404, 'Maaf Angela, file fisik PDF tidak ditemukan di dalam bucket Amazon S3!');
         }
 
-        $file = Storage::disk('public')->get($pathFile);
-        $type = Storage::disk('public')->mimeType($pathFile);
-
-        return response($file, 200)->header('Content-Type', $type);
+        $s3Url = Storage::disk('s3')->temporaryUrl($pathFile, now()->addMinutes(5));
+        return redirect()->away($s3Url);
     }
 
     /**
-     * Menghapus dokumen dari database secara absolut (Khusus Admin - SUDAH TERHUBUNG TIMELINE)
+     * Menghapus Dokumen Permanen (S3 + DB)
      */
     public function destroy($id)
     {
@@ -181,64 +201,87 @@ class DokumenController extends Controller
         $dokumen = Dokumen::findOrFail($id);
         $pathFile = $dokumen->s3_object_key;
 
-        // 🌟 SUNTIKAN INTEGRASI LOG TIMELINE OLEH MARICA (Catat sebelum musnah)
         \App\Http\Controllers\UserController::catatLog(
             'Hapus Dokumen', 
-            Auth::user()->nama_lengkap . ' menghapus permanen berkas dokumen: ' . $dokumen->nama_dokumen . ' dari database lokal'
+            Auth::user()->nama_lengkap . ' menghapus permanen berkas dokumen: ' . $dokumen->nama_dokumen . ' dari Amazon S3 Cloud Storage.'
         );
 
-        // Hapus file fisik di storage lokal
-        if (Storage::disk('public')->exists($pathFile)) {
-            Storage::disk('public')->delete($pathFile);
+        if (Storage::disk('s3')->exists($pathFile)) {
+            Storage::disk('s3')->delete($pathFile);
         }
 
-        // Hapus baris data di MySQL
         $dokumen->delete();
 
-        return redirect()->back()->with('success', 'Dokumen berhasil dihapus secara permanen!');
+        return redirect()->back()->with('success', 'Dokumen berhasil dihapus secara permanen dari Cloud S3!');
     }
-    // 🌟 FUNGSI TAMPIL FORM EDIT DOKUMEN
+    
+    /**
+     * Form Edit Dokumen
+     */
     public function editDokumen($id)
     {
-        $dokumen = \App\Models\Dokumen::findOrFail($id);
-        return view('retail.edit_dokumen', compact('dokumen')); // Kita pakai satu form global yang rapi
+        $dokumen = Dokumen::findOrFail($id);
+        $perusahaan = $dokumen->perusahaan;
+        $kategoris = Kategori::all(); // SEDOT DATA KATEGORI DINAMIS
+
+        if (in_array(Auth::user()->role, ['kepala-bu', 'kepala_bu'])) {
+            if (strtolower(Auth::user()->bisnis_unit) !== strtolower($dokumen->bisnis_unit)) {
+                return redirect()->back()->with('error', 'Otoritas ditolak! Anda tidak memiliki izin untuk mengubah arsip dokumen milik unit operasional lain.');
+            }
+        }
+
+        $nama_bu = strtoupper(str_replace('-', ' ', $dokumen->bisnis_unit));
+        $buObj = BisnisUnit::where('nama_bisnis_unit', 'LIKE', $nama_bu)->first();
+        
+        if (($buObj && $buObj->kategori === 'commercial') || str_contains(request()->url(), 'comercial')) {
+            return view('comercial.edit_dokumen', compact('dokumen', 'perusahaan', 'kategoris')); 
+        }
+
+        return view('retail.edit_dokumen', compact('dokumen', 'perusahaan', 'kategoris')); 
     }
 
-   // 🌟 FUNGSI PROSES UPDATE DATA KE DATABASE (SUDAH DI-DEEP DIVE OLEH MARICA)
+    /**
+     * Memproses Update Dokumen
+     */
     public function updateDokumen(Request $request, $id)
     {
-        $dokumen = \App\Models\Dokumen::findOrFail($id);
+        $dokumen = Dokumen::findOrFail($id);
 
-        // 1. Validasi data inputan baru (Wajib daftarkan bulan, tahun, dan jilid!)
-        // Pasang id di bagian akhir unique agar tidak bentrok dengan nomor lama dirinya sendiri
         $request->validate([
             'nama_dokumen'  => 'required|string|max:255',
-            'no_dokumen'    => 'required|string|max:255|unique:dokumens,no_dokumen,' . $id, // 🔑 KUNCI AMAN ANTI-BENTROK
+            'no_dokumen'    => 'required|string|max:255|unique:dokumens,no_dokumen,' . $id, 
             'tipe_keuangan' => 'required|string',
-            'bulan_buku'    => 'required|string|max:20',  // 🌟 BARU: Wajib ditangkap backend
-            'tahun_buku'    => 'required|string|max:20',  // 🌟 BARU: Wajib ditangkap backend
-            'jilid_buku'    => 'required|string|max:10',  // 🌟 BARU: Wajib ditangkap backend
+            'bulan_buku'    => 'required|string|max:20',  
+            'tahun_buku'    => 'required|string|max:20',  
+            'jilid_buku'    => 'required|string|max:10',  
             'keterangan'    => 'nullable|string',
         ]);
 
-        // 2. Eksekusi pembaruan metadata ke database MySQL lokal
         $dokumen->update([
             'nama_dokumen'  => $request->nama_dokumen,
-            'no_dokumen'    => $request->no_dokumen, // Nomor baru hasil racikan JS otomatis
+            'no_dokumen'    => $request->no_dokumen, 
             'tipe_keuangan' => $request->tipe_keuangan,
-            'bulan_buku'    => $request->bulan_buku,  // 🌟 SIMPAN KE DATABASE
-            'tahun_buku'    => $request->tahun_buku,  // 🌟 SIMPAN KE DATABASE
-            'jilid_buku'    => $request->jilid_buku,  // 🌟 SIMPAN KE DATABASE
+            'bulan_buku'    => $request->bulan_buku,  
+            'tahun_buku'    => $request->tahun_buku,  
+            'jilid_buku'    => $request->jilid_buku,  
             'keterangan'    => $request->keterangan,
         ]);
 
-        // 3. 🌟 JALUR PULANG ASLI ANGELA: Kembalikan ke halaman daftar dokumen sesuai rumpun divisinya
-        if (in_array($dokumen->bisnis_unit, ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar'])) {
-            return redirect()->route('retail.dokumen', [$dokumen->bisnis_unit, $dokumen->perusahaan])
-                             ->with('success', 'Informasi dokumen retail berhasil diperbarui dengan nomor resmi baru!');
-        } else {
+        // 🔥 SUNTIKAN AUDIT TRAIL: Rekam aktivitas edit dokumen ke database log
+        \App\Http\Controllers\UserController::catatLog(
+            'Edit Dokumen', 
+            Auth::user()->nama_lengkap . ' memperbarui metadata dokumen resmi bernomor: ' . $request->no_dokumen
+        );
+
+        $nama_bu = strtoupper(str_replace('-', ' ', $dokumen->bisnis_unit));
+        $buObj = BisnisUnit::where('nama_bisnis_unit', 'LIKE', $nama_bu)->first();
+
+        if ($buObj && $buObj->kategori === 'commercial') {
             return redirect()->route('comercial.dokumen', [$dokumen->bisnis_unit, $dokumen->perusahaan])
-                             ->with('success', 'Informasi dokumen komersial berhasil diperbarui dengan nomor resmi baru!');
+                             ->with('success', 'Informasi dokumen komersial berhasil diperbarui!');
         }
+
+        return redirect()->route('retail.dokumen', [$dokumen->bisnis_unit, $dokumen->perusahaan])
+                         ->with('success', 'Informasi dokumen retail berhasil diperbarui!');
     }
 }

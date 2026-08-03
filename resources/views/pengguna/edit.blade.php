@@ -67,12 +67,12 @@
                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Tingkatan Otoritas Hak Akses</label>
                 <div class="relative flex items-center">
                     <i class="fa-solid fa-user-shield absolute left-4 text-gray-300 text-sm"></i>
-                    <select name="role" required 
+                    <select id="role_select" name="role" required 
                         class="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl outline-none text-gray-600 text-xs focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold cursor-pointer shadow-sm">
                         <option value="admin" {{ $user->role == 'admin' ? 'selected' : '' }}>Admin Pusat</option>
-                        <option value="pegawai-retail" {{ ($user->role == 'pegawai-retail' || $user->role == 'pegawai') ? 'selected' : '' }}>Retail Staff</option>
+                        <option value="pegawai-retail" {{ in_array($user->role, ['pegawai-retail', 'pegawai']) ? 'selected' : '' }}>Retail Staff</option>
                         <option value="pegawai-komersial" {{ $user->role == 'pegawai-komersial' ? 'selected' : '' }}>Commercial Staff</option>
-                        <option value="kepala-bu" {{ $user->role == 'kepala-bu' ? 'selected' : '' }}>Kepala Business Unit</option>
+                        <option value="kepala-bu" {{ in_array($user->role, ['kepala-bu', 'kepala_bu']) ? 'selected' : '' }}>Kepala Business Unit</option>
                     </select>
                 </div>
             </div>
@@ -81,13 +81,18 @@
                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Penempatan Wilayah Otoritas Bisnis Unit</label>
                 <div class="relative flex items-center">
                     <i class="fa-solid fa-building-flag absolute left-4 text-gray-300 text-sm"></i>
-                    <select name="bisnis_unit" 
+                    <select id="bisnis_unit_select" name="bisnis_unit" 
                         class="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl outline-none text-gray-600 text-xs focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold cursor-pointer shadow-sm">
                         <option value="" {{ is_null($user->bisnis_unit) ? 'selected' : '' }}>-- KOSONG / TANPA WILAYAH (KHUSUS ADMIN) --</option>
-                        <option value="spbu" {{ $user->bisnis_unit == 'spbu' ? 'selected' : '' }}>SPBU</option>
-                        <option value="swalayan" {{ $user->bisnis_unit == 'swalayan' ? 'selected' : '' }}>SWALAYAN</option>
+                        
+                        @foreach($bisnisUnits as $bu)
+                            <option value="{{ $bu->nama_bisnis_unit }}" data-kategori="{{ $bu->kategori }}" {{ old('bisnis_unit', $user->bisnis_unit) == $bu->nama_bisnis_unit ? 'selected' : '' }}>
+                                {{ strtoupper(str_replace('-', ' ', $bu->nama_bisnis_unit)) }} ({{ strtoupper($bu->kategori) }})
+                            </option>
+                        @endforeach
                     </select>
                 </div>
+                <p class="text-[9px] text-gray-400 font-medium italic mt-1 ml-1">*Wajib dikunci jika mendaftarkan role Staf Unit atau Kepala BU.</p>
             </div>
 
             <div class="space-y-1.5">
@@ -110,4 +115,33 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const roleSelect = document.getElementById('role_select');
+        const buSelect = document.getElementById('bisnis_unit_select');
+        const options = buSelect.querySelectorAll('option');
+
+        function filterBisnisUnit() {
+            const role = roleSelect.value;
+            options.forEach(opt => {
+                if (opt.value === "") {
+                    opt.style.display = "block";
+                    return;
+                }
+                const kategori = opt.getAttribute('data-kategori');
+                if (role === 'pegawai-retail' && kategori !== 'retail') {
+                    opt.style.display = "none";
+                } else if (role === 'pegawai-komersial' && kategori !== 'commercial') {
+                    opt.style.display = "none";
+                } else {
+                    opt.style.display = "block";
+                }
+            });
+        }
+
+        roleSelect.addEventListener('change', filterBisnisUnit);
+        filterBisnisUnit();
+    });
+</script>
 @endsection

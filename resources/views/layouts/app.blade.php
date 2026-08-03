@@ -12,7 +12,6 @@
     @vite('resources/css/app.css')
     <style>
         body { font-family: 'Poppins', sans-serif; }
-        /* Animasi transisi lebar sidebar yang sangat smooth dan elegan */
         .sidebar-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .fade-transition { transition: opacity 0.2s ease-in-out; }
     </style>
@@ -41,17 +40,20 @@
             
             <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
                 
+                {{-- ========================================== --}}
+                {{-- BLOK 1: NAVIGASI MENU UTAMA DASHBOARD --}}
+                {{-- ========================================== --}}
                 @if(Auth::user()->role == 'admin')
                     <a href="/dashboard" class="flex items-center gap-4 p-3 {{ Request::is('dashboard') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Dashboard Admin">
                         <i class="fa-solid fa-chart-pie text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Dashboard Admin</span>
                     </a>
-                @elseif(Auth::user()->role == 'pegawai-retail')
+                @elseif(Auth::user()->role == 'pegawai-retail' && Auth::user()->status_aktif === 'approved')
                     <a href="/dashboard/retail" class="flex items-center gap-4 p-3 {{ Request::is('dashboard/retail*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Dashboard Retail">
                         <i class="fa-solid fa-chart-pie text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Dashboard Retail</span>
                     </a>
-                @elseif(Auth::user()->role == 'pegawai-komersial')
+                @elseif(Auth::user()->role == 'pegawai-komersial' && Auth::user()->status_aktif === 'approved')
                     <a href="/dashboard/commercial" class="flex items-center gap-4 p-3 {{ Request::is('dashboard/commercial*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Dashboard Komersial">
                         <i class="fa-solid fa-chart-pie text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Dashboard Komersial</span>
@@ -63,6 +65,9 @@
                     </a>
                 @endif
 
+                {{-- ========================================== --}}
+                {{-- BLOK 2: KONTROL DINAMIS MENU AKSI SPESIFIK --}}
+                {{-- ========================================== --}}
                 @if(Auth::user()->role == 'admin')
                     <div class="pt-4 pb-1 px-3 sidebar-text fade-transition">
                         <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Kontrol Admin</p>
@@ -84,11 +89,11 @@
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Audit Trail Sistem</span>
                     </a>
                 
-                @elseif(Auth::user()->role == 'pegawai-retail')
+                @elseif(Auth::user()->role == 'pegawai-retail' && Auth::user()->status_aktif === 'approved')
                     <div class="pt-4 pb-1 px-3 sidebar-text fade-transition">
                         <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Menu Kerja Retail</p>
                     </div>
-                    <a href="/retail" class="flex items-center gap-4 p-3 {{ Request::is('retail*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Kelola Dokumen Retail">
+                    <a href="/retail/{{ strtolower(str_replace(' ', '-', Auth::user()->bisnis_unit)) }}" class="flex items-center gap-4 p-3 {{ Request::is('retail*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Kelola Dokumen Retail">
                         <i class="fa-solid fa-shop text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Kelola Dokumen Retail</span>
                     </a>
@@ -97,11 +102,11 @@
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Timeline Kerja Saya</span>
                     </a>
 
-                @elseif(Auth::user()->role == 'pegawai-komersial')
+                @elseif(Auth::user()->role == 'pegawai-komersial' && Auth::user()->status_aktif === 'approved')
                     <div class="pt-4 pb-1 px-3 sidebar-text fade-transition">
                         <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Menu Kerja Komersial</p>
                     </div>
-                    <a href="/comercial" class="flex items-center gap-4 p-3 {{ Request::is('comercial*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Kelola Dokumen Komersial">
+                    <a href="/comercial/{{ strtolower(str_replace(' ', '-', Auth::user()->bisnis_unit)) }}" class="flex items-center gap-4 p-3 {{ Request::is('comercial*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Kelola Dokumen Komersial">
                         <i class="fa-solid fa-wallet text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                         <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Kelola Dokumen Komersial</span>
                     </a>
@@ -114,7 +119,14 @@
                     <div class="pt-4 pb-1 px-3 sidebar-text fade-transition">
                         <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Otoritas Wilayah</p>
                     </div>
-                    @if(in_array(strtolower(Auth::user()->bisnis_unit), ['spbu', 'lpg-pso', 'lpg-npso', 'sppbe', 'bbm-retail', 'inmar']))
+
+                    @php
+                        // 🔥 100% DINAMIS DATABASE: Cek kategori Bisnis Unit milik Kepala BU langsung dari MySQL
+                        $currentBu = \App\Models\BisnisUnit::where('nama_bisnis_unit', 'LIKE', Auth::user()->bisnis_unit)->first();
+                        $isRetailBu = $currentBu ? ($currentBu->kategori === 'retail') : true; 
+                    @endphp
+
+                    @if($isRetailBu)
                         <a href="/retail" class="flex items-center gap-4 p-3 {{ Request::is('retail*') ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} rounded-xl transition group flex-shrink-0" title="Monitoring Arsip Retail">
                             <i class="fa-solid fa-shop text-sm flex-shrink-0 w-5 text-center group-hover:text-sky-400"></i>
                             <span class="sidebar-text text-xs tracking-wide whitespace-nowrap fade-transition">Monitoring Arsip Retail</span>
@@ -145,17 +157,17 @@
                 <div class="flex flex-col gap-3">
                     <div class="flex items-center gap-3 overflow-hidden flex-shrink-0">
                         <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white font-bold text-xs border border-white/10 flex-shrink-0">
-                            {{ strtoupper(substr(Auth::user()->nama_lengkap, 0, 1)) }}
+                            {{ isset(Auth::user()->nama_lengkap) ? strtoupper(substr(Auth::user()->nama_lengkap, 0, 1)) : 'U' }}
                         </div>
                         <div class="truncate sidebar-text fade-transition">
-                            <p class="text-[11px] font-bold text-white truncate whitespace-nowrap">{{ Auth::user()->nama_lengkap }}</p>
+                            <p class="text-[11px] font-bold text-white truncate whitespace-nowrap">{{ Auth::user()->nama_lengkap ?? Auth::user()->name }}</p>
                             <p class="text-[9px] font-medium text-gray-400 uppercase tracking-wider truncate whitespace-nowrap">{{ Auth::user()->role }}</p>
                         </div>
                     </div>
                     
                     <form action="{{ route('logout') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin keluar?')">
                         @csrf
-                        <button type="submit" class="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 text-[10px] font-bold rounded-xl transition-all uppercase tracking-wider text-center flex items-center justify-center gap-2 flex-shrink-0">
+                        <button type="submit" class="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 text-[10px] font-bold rounded-xl transition-all uppercase tracking-wider text-center flex items-center justify-center gap-2 flex-shrink-0 cursor-pointer">
                             <i class="fa-solid fa-power-off text-[11px] flex-shrink-0"></i> 
                             <span class="sidebar-text whitespace-nowrap fade-transition">Keluar</span>
                         </button>
@@ -177,7 +189,7 @@
                 <div class="flex items-center gap-3">
                     <span class="hidden sm:inline-block text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 uppercase tracking-wider">{{ Auth::user()->role }}</span>
                     <div class="w-8 h-8 bg-[#0c1a3c]/5 rounded-full flex items-center justify-center border border-[#0c1a3c]/10">
-                        <span class="text-xs font-black text-[#0c1a3c]">{{ strtoupper(substr(Auth::user()->nama_lengkap, 0, 1)) }}</span>
+                        <span class="text-xs font-black text-[#0c1a3c]">{{ isset(Auth::user()->nama_lengkap) ? strtoupper(substr(Auth::user()->nama_lengkap, 0, 1)) : 'U' }}</span>
                     </div>
                 </div>
             </header>
@@ -206,7 +218,6 @@
                     isCollapsed = !isCollapsed;
                     
                     if(isCollapsed) {
-                        // 1. Kecilkan lebar boks utama sidebar inline
                         if(sidebar) sidebar.style.width = '80px';
                         if(collapseIcon) collapseIcon.style.transform = 'rotate(180deg)';
                         
@@ -219,7 +230,6 @@
                             }
                         });
                     } else {
-                        // 2. Lebarkan kembali ke default 256px
                         if(sidebar) sidebar.style.width = '256px';
                         if(collapseIcon) collapseIcon.style.transform = 'rotate(0deg)';
                         

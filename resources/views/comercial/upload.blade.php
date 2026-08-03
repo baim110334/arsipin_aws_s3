@@ -12,6 +12,12 @@
         </a>
     </div>
 
+    @if (session('success'))
+        <div class="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold rounded-xl shadow-sm">
+            <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-xl shadow-sm">
             <ul class="space-y-1">
@@ -44,15 +50,23 @@
                         class="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-light shadow-sm">
                 </div>
 
+                {{-- DROPDOWN DINAMIS --}}
                 <div class="space-y-1.5">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Jenis Dokumen Keuangan</label>
-                    <select id="tipe_keuangan" name="tipe_keuangan" required
-                        class="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold text-gray-600 cursor-pointer shadow-sm">
-                        <option value="" disabled selected>Pilih Jenis Dokumen</option>
-                        <option value="Invoice" {{ old('tipe_keuangan') == 'Invoice' ? 'selected' : '' }}>📄 Invoice / Tagihan</option>
-                        <option value="Voucher" {{ old('tipe_keuangan') == 'Voucher' ? 'selected' : '' }}>💰 Voucher Kas / Bank</option>
-                        <option value="Pajak" {{ old('tipe_keuangan') == 'Pajak' ? 'selected' : '' }}>⚖️ Laporan Pajak (PPN/PPh)</option>
-                        <option value="Rekening Koran" {{ old('tipe_keuangan') == 'Rekening Koran' ? 'selected' : '' }}>📂 Rekening Koran</option>
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Jenis Dokumen Keuangan</label>
+                        @if(Auth::user()->role === 'admin')
+                            <button type="button" onclick="bukaModalKategori()" class="text-[10px] font-black text-sky-600 hover:text-sky-800 flex items-center gap-1">
+                                <i class="fa-solid fa-plus-circle"></i> Tambah Jenis Baru
+                            </button>
+                        @endif
+                    </div>
+                    <select id="tipe_keuangan" name="tipe_keuangan" required class="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-bold text-gray-600 shadow-sm">
+                        <option value="" data-singkatan="DOC">-- Pilih Jenis Dokumen --</option>
+                        @foreach($kategoris as $kat)
+                            <option value="{{ $kat->nama_kategori }}" data-singkatan="{{ $kat->singkatan }}">
+                                {{ $kat->nama_kategori }} ({{ $kat->singkatan }})
+                            </option>
+                        @endforeach
                     </select>
                 </div>
             </div>
@@ -60,7 +74,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="space-y-1.5">
                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Bulan Buku</label>
-                    <input type="text" id="bulan_buku" name="bulan_buku" value="{{ old('bulan_buku', '06') }}" placeholder="Contoh: 06 atau 03-05" required
+                    <input type="text" id="bulan_buku" name="bulan_buku" value="{{ old('bulan_buku', '06') }}" placeholder="Contoh: 06" required
                         class="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-light shadow-sm">
                 </div>
 
@@ -122,7 +136,35 @@
     </div>
 </div>
 
+{{-- MODAL TAMBAH KATEGORI --}}
+<div id="modalTambahKategori" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div class="bg-slate-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-sm font-black text-[#0c1a3c]"><i class="fa-solid fa-folder-plus text-sky-500"></i> Tambah Jenis Dokumen Baru</h3>
+            <button onclick="tutupModalKategori()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ route('kategori.store') }}" method="POST" class="p-6 space-y-4">
+            @csrf
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Nama Jenis Dokumen</label>
+                <input type="text" name="nama_kategori" placeholder="Contoh: Rekening Koran / Tax Invoice" required class="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Kode Singkatan (Maks 10 Karakter)</label>
+                <input type="text" name="singkatan" placeholder="Contoh: RKB / TXI / VOU" maxlength="10" required class="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 uppercase font-bold">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="tutupModalKategori()" class="px-4 py-2 bg-gray-100 text-gray-600 text-xs font-bold rounded-xl">Batal</button>
+                <button type="submit" class="px-5 py-2 bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md">Simpan Jenis</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    function bukaModalKategori() { document.getElementById('modalTambahKategori').classList.remove('hidden'); }
+    function tutupModalKategori() { document.getElementById('modalTambahKategori').classList.add('hidden'); }
+
     document.addEventListener('DOMContentLoaded', function () {
         const tipeKeuangan = document.getElementById('tipe_keuangan');
         const perusahaanNama = document.getElementById('perusahaan_nama');
@@ -137,32 +179,29 @@
         const errorMessage = document.getElementById('error_file_message');
         const btnSubmit = document.getElementById('btn_submit_arsip');
 
-        function generateNomorDokumen() {
-            let kodeJenis = '...';
-            if (tipeKeuangan.value === 'Invoice') kodeJenis = 'INV';
-            else if (tipeKeuangan.value === 'Voucher') kodeJenis = 'VOU';
-            else if (tipeKeuangan.value === 'Pajak') kodeJenis = 'TAX';
-            else if (tipeKeuangan.value === 'Rekening Koran') kodeJenis = 'RK';
-
-            let kodePT = '...';
-            let namaPT = perusahaanNama.value.toUpperCase();
-            if (namaPT.includes('SCK')) kodePT = 'SCK';
-            else if (namaPT.includes('SBS')) kodePT = 'SBS';
-
-            const bln = bulanBuku.value.trim() || '01';
-            const thn = tahunBuku.value.trim() || '2026';
-            const jld = jilidBuku.value.trim() || '01';
-
-            if(tipeKeuangan.value) {
-                noDokumen.value = `${kodeJenis}/${kodePT}/${bln}/${thn}/${jld}`.toUpperCase();
-            } else {
-                noDokumen.value = '';
+        function generateNoDokumen() {
+            if (!tipeKeuangan || !tipeKeuangan.value) {
+                noDokumen.value = 'PILIH JENIS DOKUMEN TERLEBIH DAHULU';
+                return;
             }
+
+            const selectedOption = tipeKeuangan.options[tipeKeuangan.selectedIndex];
+            const singkatanJenis = selectedOption.getAttribute('data-singkatan') || 'DOC';
+            const ptNama = perusahaanNama ? perusahaanNama.value.replace(/PT\s*/i, '').trim().toUpperCase() : 'PT';
+            
+            const bulan = bulanBuku ? bulanBuku.value || '01' : '01';
+            const tahun = tahunBuku ? tahunBuku.value || '2026' : '2026';
+            const jilid = jilidBuku ? jilidBuku.value || '01' : '01';
+            
+            noDokumen.value = `${singkatanJenis}/${ptNama}/${bulan}/${tahun}/${jilid}`.toUpperCase();
         }
 
-        // Radar Pemantau Nama File & Ukuran Gajah
-        fileInput.addEventListener('change', function () {
-            const file = this.files[0];
+        tipeKeuangan.addEventListener('change', generateNoDokumen);
+        bulanBuku.addEventListener('input', generateNoDokumen);
+        tahunBuku.addEventListener('input', generateNoDokumen);
+        jilidBuku.addEventListener('input', generateNoDokumen);
+
+        function periksaDanSuntikFile(file) {
             if (file) {
                 const fileName = file.name;
                 const fileExtension = fileName.split('.').pop().toLowerCase();
@@ -173,7 +212,7 @@
                     errorBox.classList.remove('hidden');
                     btnSubmit.disabled = true;
                     btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
-                    this.value = ''; 
+                    fileInput.value = ''; 
                     return;
                 }
 
@@ -182,7 +221,7 @@
                     errorBox.classList.remove('hidden');
                     btnSubmit.disabled = true;
                     btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
-                    this.value = '';
+                    fileInput.value = '';
                     return;
                 }
 
@@ -192,14 +231,11 @@
                 fileNameText.innerText = "Berkas Terpilih: " + fileName;
                 fileNameText.classList.add('text-sky-500');
             }
-        });
+        }
 
-        tipeKeuangan.addEventListener('change', generateNomorDokumen);
-        bulanBuku.addEventListener('input', generateNomorDokumen);
-        tahunBuku.addEventListener('input', generateNomorDokumen);
-        jilidBuku.addEventListener('input', generateNomorDokumen);
-        
-        generateNomorDokumen();
+        fileInput.addEventListener('change', function () {
+            periksaDanSuntikFile(this.files[0]);
+        });
     });
 </script>
 @endsection

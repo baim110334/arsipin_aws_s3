@@ -17,19 +17,40 @@
         </div>
     </div>
 
-    <div class="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <div class="relative w-full sm:w-96">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-                <i class="fa-solid fa-magnifying-glass text-xs opacity-50"></i>
-            </span>
-            <input type="text" placeholder="Cari nama atau nomor dokumen komersial..." 
-                class="w-full pl-11 pr-4 py-2.5 bg-gray-50/60 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-light shadow-inner">
+    <!-- ACTION BAR -->
+    <div class="flex flex-col md:flex-row gap-3 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-1">
+            <div class="relative w-full sm:w-72">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs opacity-50"></i>
+                </span>
+                <input type="text" id="input_pencarian" placeholder="Cari nama / nomor dokumen..." 
+                    class="w-full pl-11 pr-4 py-2.5 bg-gray-50/60 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all font-light shadow-inner">
+            </div>
+
+            <select id="filter_jenis" class="w-full sm:w-52 py-2.5 px-3 bg-gray-50/60 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0c1a3c] focus:bg-white text-gray-600 font-bold">
+                <option value="">-- Semua Jenis Dokumen --</option>
+                @foreach($kategoris as $kat)
+                    <option value="{{ strtolower($kat->nama_kategori) }}">{{ $kat->nama_kategori }} ({{ $kat->singkatan }})</option>
+                @endforeach
+            </select>
         </div>
 
-        <a href="{{ route('comercial.upload', [$bisnis_unit, $nama_pt]) }}" 
-           class="w-full sm:w-auto px-5 py-2.5 bg-[#0c1a3c] text-white font-black rounded-xl text-xs uppercase tracking-wider text-center hover:bg-[#112554] active:scale-[0.98] transition-all shadow-md shadow-blue-950/10 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-cloud-arrow-up text-sky-400 text-sm"></i> Tambah Dokumen Komersial
-        </a>
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            @if(Auth::user()->role === 'admin')
+                <button onclick="bukaModalKategori()" type="button" class="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-black rounded-xl text-xs border border-amber-200 transition-all flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-folder-plus"></i> + Jenis Baru
+                </button>
+            @endif
+
+            @if(Auth::user()->role === 'admin' || strtolower(Auth::user()->bisnis_unit) === strtolower($bisnis_unit))
+                <a href="{{ route('comercial.upload', [$bisnis_unit, $nama_pt]) }}" 
+                   class="px-5 py-2.5 bg-[#0c1a3c] text-white font-black rounded-xl text-xs uppercase tracking-wider text-center hover:bg-[#112554] active:scale-[0.98] transition-all shadow-md shadow-blue-950/10 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-sky-400 text-sm"></i> Tambah Dokumen
+                </a>
+            @endif
+        </div>
     </div>
 
     @if(session('success'))
@@ -41,7 +62,7 @@
 
     <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse" id="tabel_dokumen">
                 <thead>
                     <tr class="text-[10px] uppercase text-gray-400 font-black border-b border-gray-50 bg-gray-50/50 tracking-wider">
                         <th class="px-6 py-4 w-1/4">Informasi Dokumen</th>
@@ -55,7 +76,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-50 text-xs text-gray-600">
                     @forelse($list_dokumen as $dokumen)
-                        <tr class="hover:bg-gray-50/30 transition-colors group">
+                        <tr class="hover:bg-gray-50/30 transition-colors group baris-dokumen" data-jenis="{{ strtolower($dokumen->tipe_keuangan) }}">
                             
                             <td class="px-6 py-4">
                                 <div class="font-bold text-[#0c1a3c] text-xs flex items-center gap-2">
@@ -92,44 +113,44 @@
                             </td>
                             
                             <td class="px-6 py-4">
-                                @if($dokumen->tipe_keuangan == 'Invoice')
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-[9px] font-black uppercase tracking-wider">📄 Invoice</span>
-                                @elseif($dokumen->tipe_keuangan == 'Pajak')
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded-full text-[9px] font-black uppercase tracking-wider">⚖️ Laporan Pajak</span>
-                                @elseif($dokumen->tipe_keuangan == 'Kuitansi')
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-full text-[9px] font-black uppercase tracking-wider">💰 Kuitansi</span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-50 text-gray-600 border border-gray-100 rounded-full text-[9px] font-black uppercase tracking-wider">📂 {{ $dokumen->tipe_keuangan ?? 'Umum' }}</span>
-                                @endif
+                                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded-full text-[9px] font-black uppercase tracking-wider">
+                                    📂 {{ $dokumen->tipe_keuangan ?? 'Umum' }}
+                                </span>
                             </td>
                             
                             <td class="px-6 py-4 text-center whitespace-nowrap">
                                 <div class="flex items-center justify-center gap-1.5">
-                                    <a href="{{ route('dokumen.edit', $dokumen->id) }}" class="inline-flex items-center text-[11px] font-black text-[#0c1a3c] bg-gray-50 hover:bg-[#0c1a3c] hover:text-white border border-gray-200 px-2.5 py-1 rounded-lg transition-all shadow-sm">
-                                        <i class="fa-solid fa-file-pen text-[10px] opacity-70 mr-0.5"></i> Edit
-                                    </a>
+                                    @if(Auth::user()->role === 'admin' || (Auth::user()->role === 'pegawai-komersial' && strtolower(Auth::user()->bisnis_unit) === strtolower($bisnis_unit)))
+                                        <a href="{{ route('dokumen.edit', $dokumen->id) }}" class="inline-flex items-center text-[11px] font-black text-[#0c1a3c] bg-gray-50 hover:bg-[#0c1a3c] hover:text-white border border-gray-200 px-2.5 py-1 rounded-lg transition-all shadow-sm">
+                                            <i class="fa-solid fa-file-pen text-[10px] opacity-70 mr-0.5"></i> Edit
+                                        </a>
 
-                                    @if(Auth::user()->role == 'admin')
-                                        <form action="{{ route('dokumen.destroy', $dokumen->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Angela yakin ingin menghapus berkas komersial ini secara permanen?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="inline-flex items-center text-[11px] font-black text-red-600 bg-red-50 hover:bg-red-600 hover:text-white border border-red-200/60 px-2.5 py-1 rounded-lg transition-all shadow-sm cursor-pointer">
-                                                <i class="fa-solid fa-trash-can text-[10px] opacity-70 mr-0.5"></i> Hapus
-                                            </button>
-                                        </form>
-                                    @else
-                                        @if($dokumen->status === 'pending_hapus')
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[9px] font-black uppercase tracking-wider animate-pulse shadow-sm">
-                                                <i class="fa-solid fa-hourglass-start"></i> Diajukan Hapus
-                                            </span>
-                                        @else
-                                            <form action="{{ route('dokumen.ajukan-hapus', $dokumen->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin mengajukan penghapusan dokumen ini ke Kepala BU Komersial?')">
+                                        @if(Auth::user()->role == 'admin')
+                                            <form action="{{ route('dokumen.destroy', $dokumen->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus berkas dokumen ini secara permanen?')">
                                                 @csrf
-                                                <button type="submit" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-gray-200/50 hover:border-red-200 transition inline-flex items-center justify-center cursor-pointer shadow-sm" title="Ajukan Hapus">
-                                                    <i class="fa-solid fa-trash-arrow-up text-xs"></i>
+                                                @method('DELETE')
+                                                <button type="submit" class="inline-flex items-center text-[11px] font-black text-red-600 bg-red-50 hover:bg-red-600 hover:text-white border border-red-200/60 px-2.5 py-1 rounded-lg transition-all shadow-sm cursor-pointer">
+                                                    <i class="fa-solid fa-trash-can text-[10px] opacity-70 mr-0.5"></i> Hapus
                                                 </button>
                                             </form>
+                                        @else
+                                            @if($dokumen->status === 'pending_hapus')
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[9px] font-black uppercase tracking-wider animate-pulse shadow-sm">
+                                                    <i class="fa-solid fa-hourglass-start"></i> Diajukan Hapus
+                                                </span>
+                                            @else
+                                                <form action="{{ route('dokumen.ajukan-hapus', $dokumen->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin mengajukan permohonan hapus berkas komersial ini ke Kepala BU?')">
+                                                    @csrf
+                                                    <button type="submit" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-gray-200/50 hover:border-red-200 transition inline-flex items-center justify-center cursor-pointer shadow-sm" title="Ajukan Hapus">
+                                                        <i class="fa-solid fa-trash-arrow-up text-xs"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         @endif
+                                    @else
+                                        <span class="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                                            <i class="fa-solid fa-lock text-amber-500"></i> Read Only
+                                        </span>
                                     @endif
                                 </div>
                             </td>
@@ -149,4 +170,62 @@
         </div>
     </div>
 </div>
+
+{{-- MODAL TAMBAH KATEGORI --}}
+<div id="modalTambahKategori" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div class="bg-slate-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-sm font-black text-[#0c1a3c]"><i class="fa-solid fa-folder-plus text-sky-500"></i> Tambah Jenis Dokumen Baru</h3>
+            <button onclick="tutupModalKategori()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ route('kategori.store') }}" method="POST" class="p-6 space-y-4">
+            @csrf
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Nama Jenis Dokumen</label>
+                <input type="text" name="nama_kategori" placeholder="Contoh: Rekening Koran / Tax Invoice" required class="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Kode Singkatan (Maks 10 Karakter)</label>
+                <input type="text" name="singkatan" placeholder="Contoh: RKB / TXI / VOU" maxlength="10" required class="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 uppercase font-bold">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="tutupModalKategori()" class="px-4 py-2 bg-gray-100 text-gray-600 text-xs font-bold rounded-xl">Batal</button>
+                <button type="submit" class="px-5 py-2 bg-sky-500 text-white text-xs font-bold rounded-xl shadow-md">Simpan Jenis</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function bukaModalKategori() { document.getElementById('modalTambahKategori').classList.remove('hidden'); }
+    function tutupModalKategori() { document.getElementById('modalTambahKategori').classList.add('hidden'); }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputCari = document.getElementById('input_pencarian');
+        const filterJenis = document.getElementById('filter_jenis');
+        const barisDokumen = document.querySelectorAll('.baris-dokumen');
+
+        function filterTabel() {
+            const kataKunci = inputCari.value.toLowerCase();
+            const jenisDipilih = filterJenis.value.toLowerCase();
+
+            barisDokumen.forEach(row => {
+                const teksBaris = row.innerText.toLowerCase();
+                const jenisDokumen = row.getAttribute('data-jenis');
+
+                const cocokKataKunci = teksBaris.includes(kataKunci);
+                const cocokJenis = (jenisDipilih === '') || (jenisDokumen === jenisDipilih);
+
+                if (cocokKataKunci && cocokJenis) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        if(inputCari) inputCari.addEventListener('input', filterTabel);
+        if(filterJenis) filterJenis.addEventListener('change', filterTabel);
+    });
+</script>
 @endsection
